@@ -733,3 +733,9 @@ and run `php artisan cache:clear`.
 3. `php artisan config:clear && php artisan cache:clear`.
 4. Confirm `/arknox-monitor/health` and that `request_count` rises.
 5. Confirm `exclude_paths` is right for this site.
+
+---
+
+## License
+
+MIT. See [LICENSE](LICENSE).

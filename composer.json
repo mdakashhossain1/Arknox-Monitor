@@ -2,6 +2,7 @@
     "name": "mdakashhossain1/arknox-monitor",
     "description": "Usage tracking, billing and payment enforcement for Laravel sites (requests, Cloudflare R2, Redis).",
     "type": "library",
+    "license": "MIT",
     "keywords": ["laravel", "monitoring", "billing", "usage", "r2", "redis"],
     "require": {
         "php": "^8.1",
