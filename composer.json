@@ -1,0 +1,23 @@
+{
+    "name": "mdakashhossain1/arknox-monitor",
+    "description": "Usage tracking, billing and payment enforcement for Laravel sites (requests, Cloudflare R2, Redis).",
+    "type": "library",
+    "keywords": ["laravel", "monitoring", "billing", "usage", "r2", "redis"],
+    "require": {
+        "php": "^8.1",
+        "laravel/framework": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\ArknoxMonitor\\": ""
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\ArknoxMonitor\\App\\Providers\\ArknoxMonitorServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}

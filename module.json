@@ -1,0 +1,13 @@
+{
+    "name": "ArknoxMonitor",
+    "alias": "arknoxmonitor",
+    "description": "Passive database usage monitor — tracks query count, execution time, rows, health checks and monthly billing for the site's own database.",
+    "keywords": ["monitor", "database", "usage", "billing", "health"],
+    "priority": 0,
+    "providers": [
+        "Modules\\ArknoxMonitor\\App\\Providers\\ArknoxMonitorServiceProvider"
+    ],
+    "aliases": {},
+    "files": [],
+    "requires": []
+}
