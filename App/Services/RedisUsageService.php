@@ -3,6 +3,7 @@
 namespace Modules\ArknoxMonitor\App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class RedisUsageService
 {
@@ -12,10 +13,12 @@ class RedisUsageService
      */
     public static function estimateCost(int $year, int $month, ?object $row = null): array
     {
-        $row ??= DB::table('arknox_redis_monthly')
-            ->where('year', $year)
-            ->where('month', $month)
-            ->first();
+        if ($row === null && Schema::hasTable('arknox_redis_monthly')) {
+            $row = DB::table('arknox_redis_monthly')
+                ->where('year', $year)
+                ->where('month', $month)
+                ->first();
+        }
 
         $commands  = (int) ($row?->commands   ?? 0);
         $peakBytes = (int) ($row?->peak_bytes ?? 0);

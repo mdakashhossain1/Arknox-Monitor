@@ -4,6 +4,7 @@ namespace Modules\ArknoxMonitor\App\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\ArknoxMonitor\App\Services\R2StorageService;
 
 class BillingEngine
@@ -64,8 +65,10 @@ class BillingEngine
 
         $total = round($baseRent + $overageAmount + $r2['total_usd'] + $redis['total_usd'], 4);
 
+        $columns = Schema::getColumnListing('arknox_invoices');
+
         DB::table('arknox_invoices')->upsert(
-            [
+            $this->onlyColumns($columns, [
                 'year'             => $year,
                 'month'            => $month,
                 'query_count'      => $queries,
@@ -82,14 +85,14 @@ class BillingEngine
                 'status'           => 'pending',
                 'created_at'       => now(),
                 'updated_at'       => now(),
-            ],
+            ]),
             ['year', 'month'],
-            [
+            array_values(array_intersect([
                 'query_count', 'overage_amount',
                 'r2_storage_cost', 'r2_class_a_cost', 'r2_class_b_cost', 'r2_overage_amount',
                 'redis_command_cost', 'redis_storage_cost', 'redis_overage_amount',
                 'total_amount', 'updated_at',
-            ]
+            ], $columns))
         );
 
         $row = DB::table('arknox_invoices')->where('year', $year)->where('month', $month)->first();
@@ -187,6 +190,12 @@ class BillingEngine
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    /** Drops values for columns a not-yet-migrated database does not have. */
+    private function onlyColumns(array $columns, array $row): array
+    {
+        return array_intersect_key($row, array_flip($columns));
+    }
 
     private function isCurrentMonth(int $year, int $month): bool
     {
