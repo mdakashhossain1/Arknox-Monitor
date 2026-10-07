@@ -8,7 +8,17 @@ A drop-in Laravel package that does three things on the site it is installed on:
 
 Everything is exposed through a token-protected JSON API, so a separate dashboard (or any other site) can read invoices and mark them paid.
 
-Tested on Laravel 10, PHP 8.2, MySQL/MariaDB. It uses MySQL-specific SQL (`ON DUPLICATE KEY UPDATE`, `GREATEST`), so it needs MySQL or MariaDB. Laravel 11/12 should work but has not been tested.
+Tested on Laravel 10, 11 and 12 with PHP 8.2 and MySQL/MariaDB. It uses MySQL-specific SQL (`ON DUPLICATE KEY UPDATE`, `GREATEST`), so it needs MySQL or MariaDB.
+
+Install with Composer:
+
+```bash
+composer require mdakashhossain1/arknox-monitor:^1.1
+```
+
+Then add `ARKNOX_MONITOR_SECRET` to `.env` and run `php artisan migrate`. Laravel finds the package by itself, so no other file needs editing.
+
+> Every released Laravel 10 and 11 version has known security advisories, so Composer refuses to install them in a **new** project by default. Laravel 12 installs cleanly. Existing Laravel 10/11 apps that already have the framework installed are not affected. Upgrading Laravel is the proper fix; `composer config audit.block-insecure false` is a workaround.
 
 ---
 
