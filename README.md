@@ -13,10 +13,19 @@ Tested on Laravel 10, 11 and 12 with PHP 8.2 and MySQL/MariaDB. It uses MySQL-sp
 Install with Composer:
 
 ```bash
-composer require mdakashhossain1/arknox-monitor:^1.1
+composer require mdakashhossain1/arknox-monitor:^1.2
+php artisan migrate
 ```
 
-Then add `ARKNOX_MONITOR_SECRET` to `.env` and run `php artisan migrate`. Laravel finds the package by itself, so no other file needs editing.
+That is all. During the install the package sets itself up:
+
+- Composer also installs the package it needs for Cloudflare R2 (`league/flysystem-aws-s3-v3`).
+- Laravel finds the package by itself, so `config/app.php` is not edited.
+- On the first console run (the `composer require` itself, or the next `artisan` command) it adds its settings from `.env.example` to your `.env`, including a freshly generated `ARKNOX_MONITOR_SECRET`, and publishes `config/arknoxmonitor.php`. Existing values are never overwritten.
+- If your site has no `r2` filesystem disk, the package defines one from the `CLOUDFLARE_R2_*` values in `.env`. No edit to `config/filesystems.php` is needed.
+- Your published `config/arknoxmonitor.php` only needs the values you want to change; anything missing falls back to the package defaults.
+
+To turn the automatic `.env` and config setup off, set `ARKNOX_AUTO_SETUP=false` (as a server environment variable) before installing. To run it by hand: `php artisan arknox-monitor:setup`.
 
 > Every released Laravel 10 and 11 version has known security advisories, so Composer refuses to install them in a **new** project by default. Laravel 12 installs cleanly. Existing Laravel 10/11 apps that already have the framework installed are not affected. Upgrading Laravel is the proper fix; `composer config audit.block-insecure false` is a workaround.
 

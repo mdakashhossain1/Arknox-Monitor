@@ -3,6 +3,10 @@
 return [
     'route_prefix'  => 'arknox-monitor',
     'secret'        => env('ARKNOX_MONITOR_SECRET'),
+
+    // On the first console run (composer require / artisan) add the missing settings
+    // to .env and publish this file to config/arknoxmonitor.php. Set false to disable.
+    'auto_setup'    => env('ARKNOX_AUTO_SETUP', true),
     'base_rent'     => 7.00,
     'free_queries'  => 0,
     'overage_rate'  => 0.001,
