@@ -3,6 +3,7 @@
 namespace Modules\ArknoxMonitor\App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Modules\ArknoxMonitor\App\Support\Upsert;
 
 /**
  * Counts one unit per HTTP request and tracks total response time.
@@ -52,23 +53,9 @@ class QueryBuffer
             $month = $ts->month;
             $now   = $ts->toDateTimeString();
 
-            DB::statement("
-                INSERT INTO arknox_usage_daily (date, query_count, total_time_ms, created_at, updated_at)
-                VALUES (?, 1, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    query_count   = query_count   + 1,
-                    total_time_ms = total_time_ms + VALUES(total_time_ms),
-                    updated_at    = VALUES(updated_at)
-            ", [$date, $requestMs, $now, $now]);
+            Upsert::counters('arknox_usage_daily', ['date' => $date, 'query_count' => 1, 'total_time_ms' => $requestMs, 'created_at' => $now, 'updated_at' => $now], ['date'], ['query_count', 'total_time_ms']);
 
-            DB::statement("
-                INSERT INTO arknox_usage_monthly (year, month, query_count, total_time_ms, created_at, updated_at)
-                VALUES (?, ?, 1, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    query_count   = query_count   + 1,
-                    total_time_ms = total_time_ms + VALUES(total_time_ms),
-                    updated_at    = VALUES(updated_at)
-            ", [$year, $month, $requestMs, $now, $now]);
+            Upsert::counters('arknox_usage_monthly', ['year' => $year, 'month' => $month, 'query_count' => 1, 'total_time_ms' => $requestMs, 'created_at' => $now, 'updated_at' => $now], ['year', 'month'], ['query_count', 'total_time_ms']);
 
         } catch (\Throwable) {
             // Monitoring must never break the host application

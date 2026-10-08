@@ -3,6 +3,7 @@
 namespace Modules\ArknoxMonitor\App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Modules\ArknoxMonitor\App\Support\Upsert;
 
 /**
  * Accumulates Cloudflare R2 operation stats in-memory during a request
@@ -97,33 +98,9 @@ class R2UsageBuffer
             $month = $ts->month;
             $now   = $ts->toDateTimeString();
 
-            DB::statement("
-                INSERT INTO arknox_r2_daily
-                    (date, class_a_ops, class_b_ops, bytes_uploaded, bytes_downloaded, files_added, files_deleted, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    class_a_ops      = class_a_ops      + VALUES(class_a_ops),
-                    class_b_ops      = class_b_ops      + VALUES(class_b_ops),
-                    bytes_uploaded   = bytes_uploaded   + VALUES(bytes_uploaded),
-                    bytes_downloaded = bytes_downloaded + VALUES(bytes_downloaded),
-                    files_added      = files_added      + VALUES(files_added),
-                    files_deleted    = files_deleted    + VALUES(files_deleted),
-                    updated_at       = VALUES(updated_at)
-            ", [$date, $a, $b, $up, $dn, $add, $del, $now, $now]);
+            Upsert::counters('arknox_r2_daily', ['date' => $date, 'class_a_ops' => $a, 'class_b_ops' => $b, 'bytes_uploaded' => $up, 'bytes_downloaded' => $dn, 'files_added' => $add, 'files_deleted' => $del, 'created_at' => $now, 'updated_at' => $now], ['date'], ['class_a_ops', 'class_b_ops', 'bytes_uploaded', 'bytes_downloaded', 'files_added', 'files_deleted']);
 
-            DB::statement("
-                INSERT INTO arknox_r2_monthly
-                    (year, month, class_a_ops, class_b_ops, bytes_uploaded, bytes_downloaded, files_added, files_deleted, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    class_a_ops      = class_a_ops      + VALUES(class_a_ops),
-                    class_b_ops      = class_b_ops      + VALUES(class_b_ops),
-                    bytes_uploaded   = bytes_uploaded   + VALUES(bytes_uploaded),
-                    bytes_downloaded = bytes_downloaded + VALUES(bytes_downloaded),
-                    files_added      = files_added      + VALUES(files_added),
-                    files_deleted    = files_deleted    + VALUES(files_deleted),
-                    updated_at       = VALUES(updated_at)
-            ", [$year, $month, $a, $b, $up, $dn, $add, $del, $now, $now]);
+            Upsert::counters('arknox_r2_monthly', ['year' => $year, 'month' => $month, 'class_a_ops' => $a, 'class_b_ops' => $b, 'bytes_uploaded' => $up, 'bytes_downloaded' => $dn, 'files_added' => $add, 'files_deleted' => $del, 'created_at' => $now, 'updated_at' => $now], ['year', 'month'], ['class_a_ops', 'class_b_ops', 'bytes_uploaded', 'bytes_downloaded', 'files_added', 'files_deleted']);
 
         } catch (\Throwable) {
             // Monitoring must never break the host application

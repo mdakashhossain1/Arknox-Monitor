@@ -5,6 +5,7 @@ namespace Modules\ArknoxMonitor\App\Services;
 use Illuminate\Redis\Events\CommandExecuted;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Modules\ArknoxMonitor\App\Support\Upsert;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Redis;
 use Throwable;
@@ -67,23 +68,9 @@ class RedisUsageBuffer
             $date  = $ts->toDateString();
             $now   = $ts->toDateTimeString();
 
-            DB::statement("
-                INSERT INTO arknox_redis_daily (date, commands, peak_bytes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    commands   = commands + VALUES(commands),
-                    peak_bytes = GREATEST(peak_bytes, VALUES(peak_bytes)),
-                    updated_at = VALUES(updated_at)
-            ", [$date, $commands, $peak, $now, $now]);
+            Upsert::counters('arknox_redis_daily', ['date' => $date, 'commands' => $commands, 'peak_bytes' => $peak, 'created_at' => $now, 'updated_at' => $now], ['date'], ['commands'], ['peak_bytes']);
 
-            DB::statement("
-                INSERT INTO arknox_redis_monthly (year, month, commands, peak_bytes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    commands   = commands + VALUES(commands),
-                    peak_bytes = GREATEST(peak_bytes, VALUES(peak_bytes)),
-                    updated_at = VALUES(updated_at)
-            ", [$ts->year, $ts->month, $commands, $peak, $now, $now]);
+            Upsert::counters('arknox_redis_monthly', ['year' => $ts->year, 'month' => $ts->month, 'commands' => $commands, 'peak_bytes' => $peak, 'created_at' => $now, 'updated_at' => $now], ['year', 'month'], ['commands'], ['peak_bytes']);
         } catch (Throwable) {
             // Monitoring must never break the host application
         } finally {
