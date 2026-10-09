@@ -206,8 +206,8 @@ class BillingEngine
     }
 
     /**
-     * Months before the first tracked traffic, and the first tracked month itself, are free and
-     * never stored. A month that already has a stored invoice keeps it.
+     * Months before the first tracked traffic are free and never stored. The first tracked month
+     * is billed in full like any other. A month that already has a stored invoice keeps it.
      */
     private function isFreeMonth(int $year, int $month): bool
     {
@@ -217,7 +217,7 @@ class BillingEngine
 
         $first = DB::table('arknox_usage_monthly')->orderBy('year')->orderBy('month')->first(['year', 'month']);
 
-        return !$first || $year * 12 + $month <= $first->year * 12 + $first->month;
+        return !$first || $year * 12 + $month < $first->year * 12 + $first->month;
     }
 
     private function freeMonth(int $year, int $month): array
