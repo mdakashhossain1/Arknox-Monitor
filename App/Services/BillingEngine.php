@@ -18,6 +18,10 @@ class BillingEngine
      */
     public function invoice(int $year, int $month): array
     {
+        if ($this->isFreeMonth($year, $month)) {
+            return $this->freeMonth($year, $month);
+        }
+
         if ($this->isOpenMonth($year, $month)) {
             return $this->liveUsage($year, $month);
         }
@@ -40,6 +44,10 @@ class BillingEngine
      */
     public function generate(int $year, int $month): array
     {
+        if ($this->isFreeMonth($year, $month)) {
+            return $this->freeMonth($year, $month);
+        }
+
         if ($this->isOpenMonth($year, $month)) {
             return $this->liveUsage($year, $month);
         }
@@ -195,6 +203,52 @@ class BillingEngine
     private function onlyColumns(array $columns, array $row): array
     {
         return array_intersect_key($row, array_flip($columns));
+    }
+
+    /**
+     * Months before the first tracked traffic, and the first tracked month itself, are free and
+     * never stored. A month that already has a stored invoice keeps it.
+     */
+    private function isFreeMonth(int $year, int $month): bool
+    {
+        if (DB::table('arknox_invoices')->where('year', $year)->where('month', $month)->exists()) {
+            return false;
+        }
+
+        $first = DB::table('arknox_usage_monthly')->orderBy('year')->orderBy('month')->first(['year', 'month']);
+
+        return !$first || $year * 12 + $month <= $first->year * 12 + $first->month;
+    }
+
+    private function freeMonth(int $year, int $month): array
+    {
+        $usage   = DB::table('arknox_usage_monthly')->where('year', $year)->where('month', $month)->first();
+        $queries = (int) ($usage?->query_count ?? 0);
+        $timeMs  = (int) ($usage?->total_time_ms ?? 0);
+
+        return [
+            'period'             => ['year' => $year, 'month' => $month],
+            'request_count'      => $queries,
+            'total_time_ms'      => $timeMs,
+            'avg_response_ms'    => $queries > 0 ? round($timeMs / $queries, 2) : 0,
+            'free_quota'         => (int) config('arknoxmonitor.free_queries', 0),
+            'overage_requests'   => 0,
+            'base_rent_usd'      => 0.0,
+            'overage_amount'     => 0.0,
+            'r2_storage_cost'    => 0.0,
+            'r2_class_a_cost'    => 0.0,
+            'r2_class_b_cost'    => 0.0,
+            'r2_overage_amount'  => 0.0,
+            'r2_detail'          => null,
+            'redis_command_cost' => 0.0,
+            'redis_storage_cost' => 0.0,
+            'redis_amount'       => 0.0,
+            'redis_detail'       => null,
+            'total_usd'          => 0.0,
+            'status'             => $this->isOpenMonth($year, $month) ? 'accumulating' : 'paid',
+            'paid_at'            => null,
+            'free_month'         => true,
+        ];
     }
 
     private function isOpenMonth(int $year, int $month): bool
