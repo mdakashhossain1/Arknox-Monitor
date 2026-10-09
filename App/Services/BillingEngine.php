@@ -12,13 +12,13 @@ class BillingEngine
     /**
      * Return invoice data for a period.
      *
-     * Current month  → live accumulation preview, never written to DB, status = "accumulating".
+     * Current or future month → live accumulation preview, never written to DB, status = "accumulating".
      * Past months    → auto-generate and persist the real invoice on first access.
      * Paid invoices  → locked snapshot, never recalculated.
      */
     public function invoice(int $year, int $month): array
     {
-        if ($this->isCurrentMonth($year, $month)) {
+        if ($this->isOpenMonth($year, $month)) {
             return $this->liveUsage($year, $month);
         }
 
@@ -36,11 +36,11 @@ class BillingEngine
 
     /**
      * Generate and persist an invoice for a completed past month.
-     * Blocked for the current month — invoices are only final once the month ends.
+     * Blocked for the current and future months — invoices are only final once the month ends.
      */
     public function generate(int $year, int $month): array
     {
-        if ($this->isCurrentMonth($year, $month)) {
+        if ($this->isOpenMonth($year, $month)) {
             return $this->liveUsage($year, $month);
         }
 
@@ -100,13 +100,13 @@ class BillingEngine
     }
 
     /**
-     * Mark a past-month invoice as paid. Blocked for the current month.
+     * Mark a past-month invoice as paid. Blocked for the current and future months.
      */
     public function markPaid(int $year, int $month): array
     {
-        if ($this->isCurrentMonth($year, $month)) {
+        if ($this->isOpenMonth($year, $month)) {
             return array_merge($this->liveUsage($year, $month), [
-                'error' => 'Cannot mark the current month as paid — the month is still accumulating.',
+                'error' => 'Cannot mark this month as paid — it has not ended yet.',
             ]);
         }
 
@@ -124,7 +124,7 @@ class BillingEngine
 
     public function markUnpaid(int $year, int $month): array
     {
-        if ($this->isCurrentMonth($year, $month)) {
+        if ($this->isOpenMonth($year, $month)) {
             return $this->liveUsage($year, $month);
         }
 
@@ -197,9 +197,9 @@ class BillingEngine
         return array_intersect_key($row, array_flip($columns));
     }
 
-    private function isCurrentMonth(int $year, int $month): bool
+    private function isOpenMonth(int $year, int $month): bool
     {
-        return $year === (int) now()->year && $month === (int) now()->month;
+        return $year * 12 + $month >= (int) now()->year * 12 + (int) now()->month;
     }
 
     /**
