@@ -61,10 +61,9 @@ class BillingEngine
         $queries     = (int)   ($usage?->query_count ?? 0);
         $baseRent    = (float) config('arknoxmonitor.base_rent', 7.00);
         $freeQuota   = (int)   config('arknoxmonitor.free_queries', 0);
-        $overageRate = (float) config('arknoxmonitor.overage_rate', 0.001);
 
         $overage       = max(0, $queries - $freeQuota);
-        $overageAmount = round($overage * $overageRate, 4);
+        $overageAmount = $this->usageCharge($queries, (int) ($usage?->total_time_ms ?? 0));
 
         // ── R2 usage ──────────────────────────────────────────────────────────
         $r2 = R2StorageService::estimateCost($year, $month);
@@ -199,6 +198,21 @@ class BillingEngine
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
+    private function inr(float $usd): float
+    {
+        return round($usd * (float) config('arknoxmonitor.usd_inr', 95), 2);
+    }
+
+    /** Activity charge past the free quota, never below the server time actually used (cost-plus floor). */
+    private function usageCharge(int $activities, int $timeMs): float
+    {
+        $byActivity = max(0, $activities - (int) config('arknoxmonitor.free_queries', 0))
+            * (float) config('arknoxmonitor.overage_rate', 0.0002);
+        $byCompute = $timeMs / 3600000 * (float) config('arknoxmonitor.compute_rate_per_hour', 0.40);
+
+        return round(max($byActivity, $byCompute), 4);
+    }
+
     /** Drops values for columns a not-yet-migrated database does not have. */
     private function onlyColumns(array $columns, array $row): array
     {
@@ -245,6 +259,7 @@ class BillingEngine
             'redis_amount'       => 0.0,
             'redis_detail'       => null,
             'total_usd'          => 0.0,
+            'total_inr'          => 0.0,
             'status'             => $this->isOpenMonth($year, $month) ? 'accumulating' : 'paid',
             'paid_at'            => null,
             'free_month'         => true,
@@ -268,9 +283,8 @@ class BillingEngine
         $timeMs      = (int)   ($usage?->total_time_ms ?? 0);
         $baseRent    = (float) config('arknoxmonitor.base_rent', 7.00);
         $freeQuota   = (int)   config('arknoxmonitor.free_queries', 0);
-        $overageRate = (float) config('arknoxmonitor.overage_rate', 0.001);
         $overage     = max(0, $queries - $freeQuota);
-        $overageAmt  = round($overage * $overageRate, 4);
+        $overageAmt  = $this->usageCharge($queries, $timeMs);
 
         $r2    = R2StorageService::estimateCost($year, $month);
         $redis = RedisUsageService::estimateCost($year, $month);
@@ -294,6 +308,7 @@ class BillingEngine
             'redis_amount'       => $redis['total_usd'],
             'redis_detail'       => $redis,
             'total_usd'          => round($baseRent + $overageAmt + $r2['total_usd'] + $redis['total_usd'], 4),
+            'total_inr'          => $this->inr($baseRent + $overageAmt + $r2['total_usd'] + $redis['total_usd']),
             'status'             => 'accumulating',
             'paid_at'            => null,
         ];
@@ -327,6 +342,7 @@ class BillingEngine
             'redis_amount'       => (float) ($row->redis_overage_amount ?? 0),
             'redis_detail'       => null,
             'total_usd'          => (float) $row->total_amount,
+            'total_inr'          => $this->inr((float) $row->total_amount),
             'status'             => $row->status,
             'paid_at'            => $row->paid_at ?? null,
         ];

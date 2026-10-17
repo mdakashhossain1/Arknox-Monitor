@@ -8,12 +8,23 @@ return [
     // to .env and publish this file to config/arknoxmonitor.php. Set false to disable.
     'auto_setup'    => env('ARKNOX_AUTO_SETUP', true),
     'base_rent'     => 7.00,
-    'free_queries'  => 0,
-    'overage_rate'  => 0.001,
+    'free_queries'  => 500,
+    'overage_rate'  => 0.0002,
 
-    // URL path prefixes whose requests are never counted (no leading slash needed)
+    // Shown as total_inr on invoices. Update when the USD/INR rate moves.
+    'usd_inr'       => env('ARKNOX_USD_INR', 95),
+
+    // Price per hour of server time used by all requests. Floor under the activity charge.
+    // Cost basis: Cloud Run request-based, 1 vCPU + 0.5 GiB, Tier 2 ≈ $0.13/hour; billed at ~3x.
+    'compute_rate_per_hour' => 0.40,
+
+    // A visitor hitting the same route repeatedly counts once per this many seconds
+    'activity_window' => 300,
+
+    // URL path prefixes whose requests are never counted (no leading slash needed, '*' wildcards allowed)
     'exclude_paths' => [
         'cron/run',              // scheduler trigger — automated, not a user visit
+        'api/*/cron/run',
         'api/attendance',        // device polling
     ],
 
@@ -30,10 +41,10 @@ return [
         'bucket'          => env('CLOUDFLARE_R2_BUCKET'),
         'public_url'      => env('CLOUDFLARE_R2_PUBLIC_URL'),
 
-        // R2 pricing (USD) — charged on all usage, no free tier at service level
-        'price_storage_gb' => 0.015,        // per GB per month
-        'price_class_a'    => 4.50,         // per million Class A ops (PUT/DELETE/LIST)
-        'price_class_b'    => 0.36,         // per million Class B ops (GET/HEAD)
+        // R2 pricing (USD) — Cloudflare's rate x2, charged on all usage
+        'price_storage_gb' => 0.030,        // per GB per month (Cloudflare: 0.015)
+        'price_class_a'    => 9.00,         // per million Class A ops, PUT/DELETE/LIST (Cloudflare: 4.50)
+        'price_class_b'    => 0.72,         // per million Class B ops, GET/HEAD (Cloudflare: 0.36)
         // egress is always free on R2
     ],
 
@@ -42,7 +53,8 @@ return [
     'redis' => [
         'enabled'              => env('ARKNOX_REDIS_TRACKING', 'auto'),
         'connection'           => env('ARKNOX_REDIS_CONNECTION', 'default'),
-        'price_per_100k_cmds'  => 0.20,     // per 100K commands
-        'price_storage_gb'     => 0.25,     // per GB per month (peak memory in the month)
+        // Upstash's rate x2
+        'price_per_100k_cmds'  => 0.40,     // per 100K commands (Upstash: 0.20)
+        'price_storage_gb'     => 0.50,     // per GB per month, peak memory (Upstash: 0.25)
     ],
 ];

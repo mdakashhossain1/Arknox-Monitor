@@ -70,7 +70,7 @@ Every web request
 - Usage is buffered in memory and written once per request, after the response. There are no extra writes mid-request.
 - Monitoring never breaks the host site. Every write is wrapped so a failure is swallowed.
 - Not counted: artisan / queue workers / scheduled commands, the module's own API routes, and paths in `exclude_paths`.
-- "Query count" in the database is really **request count**: one unit per web request.
+- "Query count" in the database is really **activity count**: one unit per visitor, route and method per `activity_window` (default 5 minutes). Polling, repeated hits, bots, HEAD/OPTIONS and 404/429 responses do not add up.
 
 ---
 
@@ -310,10 +310,13 @@ total = base_rent
 | Setting | Default |
 |---------|---------|
 | `base_rent` | $7.00 / month |
-| `free_queries` | 0 |
-| `overage_rate` | $0.001 per request |
+| `free_queries` | 500 |
+| `overage_rate` | $0.0002 per counted activity |
+| `usd_inr` | 95 (`ARKNOX_USD_INR`), used for `total_inr` on invoices |
+| `compute_rate_per_hour` | $0.40 per hour of server time (the usage charge is never below this) |
+| `activity_window` | 300 seconds |
 
-Example: 5,000 requests, no R2, no Redis → $7.00 + 5,000 × $0.001 = **$12.00**.
+Example: 5,000 counted activities, no R2, no Redis → $7.00 + 4,500 × $0.0002 = **$7.90** (or more, if the server time used costs more than that).
 
 **Invoice status values:** `accumulating` (current month, preview only, never stored) · `pending` · `unpaid` · `paid`.
 
@@ -351,9 +354,9 @@ Your site needs a filesystem disk named `r2` (configurable at `arknoxmonitor.r2.
 
 | Item | Price |
 |------|-------|
-| Storage (bytes uploaded in the month) | $0.015 / GB |
-| Class A | $4.50 / million |
-| Class B | $0.36 / million |
+| Storage (bytes uploaded in the month) | $0.030 / GB |
+| Class A | $9.00 / million |
+| Class B | $0.72 / million |
 
 ---
 
@@ -375,8 +378,8 @@ Priced like Upstash pay-as-you-go. Sites that do not use Redis are never charged
 
 | Item | Price |
 |------|-------|
-| Commands | $0.20 / 100,000 |
-| Storage (peak memory) | $0.25 / GB / month |
+| Commands | $0.40 / 100,000 |
+| Storage (peak memory) | $0.50 / GB / month |
 
 These are Upstash's published pay-as-you-go rates as of writing. Check their pricing page and adjust the config if they differ.
 
@@ -626,16 +629,16 @@ return [
         'disk'             => 'r2',
         'bucket'           => env('CLOUDFLARE_R2_BUCKET'),
         'public_url'       => env('CLOUDFLARE_R2_PUBLIC_URL'),
-        'price_storage_gb' => 0.015,
-        'price_class_a'    => 4.50,
-        'price_class_b'    => 0.36,
+        'price_storage_gb' => 0.030,
+        'price_class_a'    => 9.00,
+        'price_class_b'    => 0.72,
     ],
 
     'redis' => [
         'enabled'             => env('ARKNOX_REDIS_TRACKING', 'auto'),
         'connection'          => env('ARKNOX_REDIS_CONNECTION', 'default'),
-        'price_per_100k_cmds' => 0.20,
-        'price_storage_gb'    => 0.25,
+        'price_per_100k_cmds' => 0.40,
+        'price_storage_gb'    => 0.50,
     ],
 ];
 ```
