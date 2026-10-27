@@ -5,7 +5,6 @@ namespace Modules\ArknoxMonitor\App\Services;
 use Illuminate\Redis\Events\CommandExecuted;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Modules\ArknoxMonitor\App\Support\Upsert;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Redis;
 use Throwable;
@@ -68,9 +67,9 @@ class RedisUsageBuffer
             $date  = $ts->toDateString();
             $now   = $ts->toDateTimeString();
 
-            Upsert::counters('arknox_redis_daily', ['date' => $date, 'commands' => $commands, 'peak_bytes' => $peak, 'created_at' => $now, 'updated_at' => $now], ['date'], ['commands'], ['peak_bytes']);
+            CounterBuffer::record('arknox_redis_daily', ['date' => $date, 'commands' => $commands, 'peak_bytes' => $peak, 'created_at' => $now, 'updated_at' => $now], ['date'], ['commands'], ['peak_bytes']);
 
-            Upsert::counters('arknox_redis_monthly', ['year' => $ts->year, 'month' => $ts->month, 'commands' => $commands, 'peak_bytes' => $peak, 'created_at' => $now, 'updated_at' => $now], ['year', 'month'], ['commands'], ['peak_bytes']);
+            CounterBuffer::record('arknox_redis_monthly', ['year' => $ts->year, 'month' => $ts->month, 'commands' => $commands, 'peak_bytes' => $peak, 'created_at' => $now, 'updated_at' => $now], ['year', 'month'], ['commands'], ['peak_bytes']);
         } catch (Throwable) {
             // Monitoring must never break the host application
         } finally {

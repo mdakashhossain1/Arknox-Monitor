@@ -64,16 +64,53 @@ class EnforcePaymentStatus
         return $this->withNotice($request, $next($request), $state, $lockAt);
     }
 
+    public static function forget(): void
+    {
+        Cache::forget(self::CACHE_KEY);
+
+        if ($shared = self::sharedCache()) {
+            self::attempt(fn () => $shared->forget(self::CACHE_KEY));
+        }
+    }
+
     private function paymentState(): array
     {
         $state = Cache::get(self::CACHE_KEY);
 
-        if (!is_array($state)) {
-            $state = $this->computeState();
-            Cache::put(self::CACHE_KEY, $state, (int) config('arknoxmonitor.cache_ttl_seconds', 300));
+        if (is_array($state)) {
+            return $state;
         }
 
+        $shared = self::sharedCache();
+        $state = $shared ? self::attempt(fn () => $shared->get(self::CACHE_KEY)) : null;
+
+        if (!is_array($state)) {
+            $state = $this->computeState();
+
+            if ($shared) {
+                self::attempt(fn () => $shared->put(self::CACHE_KEY, $state, (int) config('arknoxmonitor.cache_shared_ttl_seconds', 21600)));
+            }
+        }
+
+        Cache::put(self::CACHE_KEY, $state, (int) config('arknoxmonitor.cache_ttl_seconds', 300));
+
         return $state;
+    }
+
+    private static function sharedCache()
+    {
+        $store = config('arknoxmonitor.cache_store');
+
+        return $store ? Cache::store($store) : null;
+    }
+
+    private static function attempt(Closure $callback)
+    {
+        try {
+            return $callback();
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function computeState(): array

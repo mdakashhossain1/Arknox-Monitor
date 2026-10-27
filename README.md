@@ -761,3 +761,13 @@ and run `php artisan cache:clear`.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Buffering counters in Redis (v1.4)
+
+Set `ARKNOX_BUFFER=true` on a site that uses Redis and the usage counters are collected in Redis and
+written to the database at most once per `ARKNOX_BUFFER_FLUSH_SECONDS` (default 900), so a quiet site lets
+its database sleep. The billing API flushes first, so figures stay current. Without `ARKNOX_BUFFER`
+nothing changes: every counter is written straight to the database.
+
+Set `ARKNOX_CACHE_STORE=redis` to keep the payment-lock state in a second-level store, so a freshly
+started server instance does not have to query the database to learn it.

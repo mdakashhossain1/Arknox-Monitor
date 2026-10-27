@@ -4,7 +4,6 @@ namespace Modules\ArknoxMonitor\App\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Modules\ArknoxMonitor\App\Support\Upsert;
 
 /**
  * Counts one unit per visitor, route and activity window (not per raw HTTP hit), so polling and
@@ -61,9 +60,9 @@ class QueryBuffer
             $month = $ts->month;
             $now   = $ts->toDateTimeString();
 
-            Upsert::counters('arknox_usage_daily', ['date' => $date, 'query_count' => $counted, 'total_time_ms' => $requestMs, 'created_at' => $now, 'updated_at' => $now], ['date'], ['query_count', 'total_time_ms']);
+            CounterBuffer::record('arknox_usage_daily', ['date' => $date, 'query_count' => $counted, 'total_time_ms' => $requestMs, 'created_at' => $now, 'updated_at' => $now], ['date'], ['query_count', 'total_time_ms']);
 
-            Upsert::counters('arknox_usage_monthly', ['year' => $year, 'month' => $month, 'query_count' => $counted, 'total_time_ms' => $requestMs, 'created_at' => $now, 'updated_at' => $now], ['year', 'month'], ['query_count', 'total_time_ms']);
+            CounterBuffer::record('arknox_usage_monthly', ['year' => $year, 'month' => $month, 'query_count' => $counted, 'total_time_ms' => $requestMs, 'created_at' => $now, 'updated_at' => $now], ['year', 'month'], ['query_count', 'total_time_ms']);
 
         } catch (\Throwable) {
             // Monitoring must never break the host application

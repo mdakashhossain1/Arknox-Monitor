@@ -3,7 +3,6 @@
 namespace Modules\ArknoxMonitor\App\Services;
 
 use Illuminate\Support\Facades\DB;
-use Modules\ArknoxMonitor\App\Support\Upsert;
 
 /**
  * Accumulates Cloudflare R2 operation stats in-memory during a request
@@ -98,9 +97,9 @@ class R2UsageBuffer
             $month = $ts->month;
             $now   = $ts->toDateTimeString();
 
-            Upsert::counters('arknox_r2_daily', ['date' => $date, 'class_a_ops' => $a, 'class_b_ops' => $b, 'bytes_uploaded' => $up, 'bytes_downloaded' => $dn, 'files_added' => $add, 'files_deleted' => $del, 'created_at' => $now, 'updated_at' => $now], ['date'], ['class_a_ops', 'class_b_ops', 'bytes_uploaded', 'bytes_downloaded', 'files_added', 'files_deleted']);
+            CounterBuffer::record('arknox_r2_daily', ['date' => $date, 'class_a_ops' => $a, 'class_b_ops' => $b, 'bytes_uploaded' => $up, 'bytes_downloaded' => $dn, 'files_added' => $add, 'files_deleted' => $del, 'created_at' => $now, 'updated_at' => $now], ['date'], ['class_a_ops', 'class_b_ops', 'bytes_uploaded', 'bytes_downloaded', 'files_added', 'files_deleted']);
 
-            Upsert::counters('arknox_r2_monthly', ['year' => $year, 'month' => $month, 'class_a_ops' => $a, 'class_b_ops' => $b, 'bytes_uploaded' => $up, 'bytes_downloaded' => $dn, 'files_added' => $add, 'files_deleted' => $del, 'created_at' => $now, 'updated_at' => $now], ['year', 'month'], ['class_a_ops', 'class_b_ops', 'bytes_uploaded', 'bytes_downloaded', 'files_added', 'files_deleted']);
+            CounterBuffer::record('arknox_r2_monthly', ['year' => $year, 'month' => $month, 'class_a_ops' => $a, 'class_b_ops' => $b, 'bytes_uploaded' => $up, 'bytes_downloaded' => $dn, 'files_added' => $add, 'files_deleted' => $del, 'created_at' => $now, 'updated_at' => $now], ['year', 'month'], ['class_a_ops', 'class_b_ops', 'bytes_uploaded', 'bytes_downloaded', 'files_added', 'files_deleted']);
 
         } catch (\Throwable) {
             // Monitoring must never break the host application

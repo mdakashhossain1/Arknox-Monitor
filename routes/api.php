@@ -2,11 +2,12 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\ArknoxMonitor\App\Http\Controllers\MonitorController;
+use Modules\ArknoxMonitor\App\Http\Middleware\FlushBufferedCounters;
 use Modules\ArknoxMonitor\App\Http\Controllers\R2Controller;
 use Modules\ArknoxMonitor\App\Http\Controllers\RedisController;
 
 Route::prefix(config('arknoxmonitor.route_prefix', 'arknox-monitor'))
-    ->middleware('api')
+    ->middleware(['api', FlushBufferedCounters::class])
     ->group(function () {
 
         // Health

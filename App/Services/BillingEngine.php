@@ -2,6 +2,7 @@
 
 namespace Modules\ArknoxMonitor\App\Services;
 
+use Modules\ArknoxMonitor\App\Http\Middleware\EnforcePaymentStatus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -124,7 +125,7 @@ class BillingEngine
             ->where('month', $month)
             ->update(['status' => 'paid', 'paid_at' => now(), 'updated_at' => now()]);
 
-        Cache::forget('arknox_monitor_payment_locked');
+        EnforcePaymentStatus::forget();
 
         return $this->invoice($year, $month);
     }
@@ -140,7 +141,7 @@ class BillingEngine
             ->where('month', $month)
             ->update(['status' => 'unpaid', 'paid_at' => null, 'updated_at' => now()]);
 
-        Cache::forget('arknox_monitor_payment_locked');
+        EnforcePaymentStatus::forget();
 
         return $this->invoice($year, $month);
     }
@@ -172,6 +173,8 @@ class BillingEngine
      */
     public function generateMissingPastInvoices(): void
     {
+        CounterBuffer::flush();
+
         $now = now();
 
         $usageMonths = DB::table('arknox_usage_monthly')

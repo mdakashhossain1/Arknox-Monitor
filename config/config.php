@@ -31,6 +31,15 @@ return [
     // Payment enforcement config
     'enable_payment_lock' => env('ARKNOX_PAYMENT_LOCK_ENABLED', true),
     'cache_ttl_seconds'   => 300,
+    'cache_store'         => env('ARKNOX_CACHE_STORE'),   // optional second-level store (e.g. redis) so a new server instance skips the database
+    'cache_shared_ttl_seconds' => 21600,
+
+    // Collect usage counters in Redis and write them to the database once per interval
+    'buffer' => [
+        'enabled'       => env('ARKNOX_BUFFER', false),
+        'connection'    => env('ARKNOX_BUFFER_CONNECTION'),
+        'flush_seconds' => env('ARKNOX_BUFFER_FLUSH_SECONDS', 900),
+    ],
     // Days after an invoice falls due (1st of the next month) during which the site
     // still works but shows a "payment pending" banner. 0 = suspend immediately.
     'grace_days'          => env('ARKNOX_GRACE_DAYS', 5),
