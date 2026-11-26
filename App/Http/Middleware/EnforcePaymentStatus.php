@@ -8,6 +8,7 @@ use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Modules\ArknoxMonitor\App\Services\BillingEngine;
 use Modules\ArknoxMonitor\App\Services\QueryBuffer;
 use Symfony\Component\HttpFoundation\Response;
@@ -52,14 +53,17 @@ class EnforcePaymentStatus
         if (now()->gte($lockAt)) {
             DB::disconnect();
 
-            $message = "Service suspended: your plan payment for {$state['period']} (\${$state['amount']}) is unpaid. Please pay now to restore access.";
+            self::logOverdueOnce('locked', $state);
+
+            // The visitor sees a plain, non-alarming outage message. The real reason
+            // (an unpaid arknox-monitor invoice) is only in the server log and the
+            // /arknox-monitor/invoice dashboard, never in anything the browser or app renders.
+            $message = 'Sorry, this service is temporarily unavailable. Please try again shortly or contact support if the problem continues.';
 
             if ($request->expectsJson()) {
                 return response()->json([
-                    'error'      => 'Database access suspended: Unpaid invoice for previous period.',
-                    'message'    => $message,
-                    'period'     => $state['period'],
-                    'amount_due' => $state['amount'],
+                    'error'   => 'temporarily_unavailable',
+                    'message' => $message,
                 ], 503);
             }
 
@@ -118,6 +122,23 @@ class EnforcePaymentStatus
         }
     }
 
+    // Real payment details go to the server log only, at most once per hour, so an
+    // operator can still see them without every page view spamming the log.
+    private static function logOverdueOnce(string $stage, array $state): void
+    {
+        $key = self::CACHE_KEY . ':logged:' . $stage;
+
+        if (!Cache::add($key, true, 3600)) {
+            return;
+        }
+
+        Log::warning('arknox-monitor: unpaid invoice', [
+            'stage'  => $stage,
+            'period' => $state['period'] ?? null,
+            'amount' => $state['amount'] ?? null,
+        ]);
+    }
+
     private function computeState(): array
     {
         try {
@@ -167,8 +188,12 @@ class EnforcePaymentStatus
             return $response;
         }
 
-        $message = "Payment pending: your plan payment for {$state['period']} (\${$state['amount']}) is still unpaid. "
-            . 'Please pay by ' . $lockAt->format('j F Y') . ' to avoid service suspension.';
+        self::logOverdueOnce('notice', $state);
+
+        // Same rule as the locked response: nothing payment-related reaches the visitor.
+        // A low-key, generic notice only, so no one but the operator (server log,
+        // /arknox-monitor/invoice) knows this is a billing issue.
+        $message = 'We are experiencing some technical issues and are working to resolve them shortly.';
 
         $banner = '<div style="background:#b45309;color:#fff;padding:10px 16px;font:14px/1.4 system-ui,sans-serif;'
             . 'text-align:center;position:relative;z-index:2147483647">' . e($message) . '</div>';
