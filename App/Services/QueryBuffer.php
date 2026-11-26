@@ -16,6 +16,13 @@ class QueryBuffer
     private static bool  $flushing  = false;
     private static float $startMs   = 0.0;
 
+    /** A long-running worker (Octane) boots once, so every request has to begin its own timing. */
+    public static function restart(): void
+    {
+        self::$tracking = false;
+        self::start();
+    }
+
     public static function start(): void
     {
         if (self::$tracking) return;

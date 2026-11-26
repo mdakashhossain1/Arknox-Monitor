@@ -8,6 +8,7 @@ use Illuminate\Support\ServiceProvider;
 use Modules\ArknoxMonitor\App\Console\SetupCommand;
 use Modules\ArknoxMonitor\App\Http\Middleware\EnforcePaymentStatus;
 use Modules\ArknoxMonitor\App\Services\BillingEngine;
+use Modules\ArknoxMonitor\App\Services\CounterBuffer;
 use Modules\ArknoxMonitor\App\Services\HealthChecker;
 use Modules\ArknoxMonitor\App\Services\QueryBuffer;
 use Modules\ArknoxMonitor\App\Services\R2StorageService;
@@ -59,9 +60,11 @@ class ArknoxMonitorServiceProvider extends ServiceProvider
 
             // Flush accumulated stats at the very end of each request
             $this->app->terminating(function () {
+                CounterBuffer::begin();
                 QueryBuffer::flush();
                 R2UsageBuffer::flush();
                 RedisUsageBuffer::flush();
+                CounterBuffer::commit();
             });
         });
     }

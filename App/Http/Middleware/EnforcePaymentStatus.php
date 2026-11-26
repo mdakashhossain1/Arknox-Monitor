@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Modules\ArknoxMonitor\App\Services\BillingEngine;
+use Modules\ArknoxMonitor\App\Services\QueryBuffer;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -18,6 +19,10 @@ class EnforcePaymentStatus
 
     public function handle(Request $request, Closure $next): Response
     {
+        if (getenv('LARAVEL_OCTANE')) {
+            QueryBuffer::restart();
+        }
+
         if (!config('arknoxmonitor.enable_payment_lock', true)) {
             return $next($request);
         }

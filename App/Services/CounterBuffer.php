@@ -2,8 +2,10 @@
 
 namespace Modules\ArknoxMonitor\App\Services;
 
+use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Support\Facades\Redis;
 use Modules\ArknoxMonitor\App\Support\Upsert;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -20,9 +22,58 @@ class CounterBuffer
     private const TAKE = "local n = redis.call('HINCRBY', KEYS[1], ARGV[1], -tonumber(ARGV[2])) if n == 0 then redis.call('HDEL', KEYS[1], ARGV[1]) end return n";
     private const DROP_IF_SAME = "if redis.call('HGET', KEYS[1], ARGV[1]) == ARGV[2] then redis.call('HDEL', KEYS[1], ARGV[1]) end return 1";
 
+    private static ?array $queued = null;
+
+    private static int $nextFlushCheck = 0;
+
     public static function enabled(): bool
     {
         return (bool) config('arknoxmonitor.buffer.enabled', false);
+    }
+
+    /** Records made until commit() go to Redis together, in one round trip. */
+    public static function begin(): void
+    {
+        self::$queued = [];
+    }
+
+    public static function commit(): void
+    {
+        $records = self::$queued ?? [];
+        self::$queued = null;
+
+        if (!$records) {
+            return;
+        }
+
+        try {
+            $redis = self::redis();
+            if ($redis instanceof PhpRedisConnection) {
+                throw new RuntimeException('Pipelined scripts are written for Predis');
+            }
+
+            $redis->pipeline(function ($pipe) use ($records) {
+                foreach ($records as [$table, $values, $keys, $add, $max]) {
+                    $id = $table . '|' . json_encode(array_intersect_key($values, array_flip($keys)));
+
+                    foreach ($add as $column) {
+                        if ((int) $values[$column] !== 0) {
+                            $pipe->hincrby(self::HASH, "{$id}|a|{$column}", (int) $values[$column]);
+                        }
+                    }
+
+                    foreach ($max as $column) {
+                        $pipe->eval(self::KEEP_LARGEST, 1, self::HASH, "{$id}|m|{$column}", (int) $values[$column]);
+                    }
+                }
+            });
+
+            self::flushWhenDue($redis);
+        } catch (Throwable) {
+            foreach ($records as [$table, $values, $keys, $add, $max]) {
+                Upsert::counters($table, $values, $keys, $add, $max);
+            }
+        }
     }
 
     /** Same arguments as Upsert::counters(). */
@@ -30,6 +81,12 @@ class CounterBuffer
     {
         if (!self::enabled()) {
             Upsert::counters($table, $values, $keys, $add, $max);
+
+            return;
+        }
+
+        if (self::$queued !== null) {
+            self::$queued[] = [$table, $values, $keys, $add, $max];
 
             return;
         }
@@ -48,11 +105,21 @@ class CounterBuffer
                 $redis->eval(self::KEEP_LARGEST, 1, self::HASH, "{$id}|m|{$column}", (int) $values[$column]);
             }
 
-            if ($redis->set(self::LOCK, 1, 'EX', (int) config('arknoxmonitor.buffer.flush_seconds', 900), 'NX')) {
-                self::flush();
-            }
+            self::flushWhenDue($redis);
         } catch (Throwable) {
             Upsert::counters($table, $values, $keys, $add, $max);
+        }
+    }
+
+    private static function flushWhenDue($redis): void
+    {
+        if (time() < self::$nextFlushCheck) {
+            return;
+        }
+        self::$nextFlushCheck = time() + 30;
+
+        if ($redis->set(self::LOCK, 1, 'EX', (int) config('arknoxmonitor.buffer.flush_seconds', 900), 'NX')) {
+            self::flush();
         }
     }
 
